@@ -1,0 +1,47 @@
+name: Build whisper.cpp macOS binaries
+
+on:
+  workflow_dispatch:
+    inputs:
+      whisper_version:
+        description: "whisper.cpp tag or commit (e.g. v1.8.2)"
+        required: true
+        default: "v1.8.2"
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-13
+            arch: x64
+          - os: macos-14
+            arch: arm64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout whisper.cpp
+        uses: actions/checkout@v4
+        with:
+          repository: ggml-org/whisper.cpp
+          ref: ${{ github.event.inputs.whisper_version }}
+
+      - name: Build whisper.cpp
+        run: |
+          make -j$(sysctl -n hw.ncpu)
+
+      - name: Rename binary
+        run: |
+          mv main whisper-cli-darwin-${{ matrix.arch }}
+
+      - name: Verify binary
+        run: |
+          file whisper-cli-darwin-${{ matrix.arch }}
+          ./whisper-cli-darwin-${{ matrix.arch }} --help || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: whisper-cli-darwin-${{ matrix.arch }}
+          path: whisper-cli-darwin-${{ matrix.arch }}
