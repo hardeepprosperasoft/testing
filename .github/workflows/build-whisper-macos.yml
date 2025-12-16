@@ -30,7 +30,6 @@ jobs:
       - name: Build whisper.cpp
         run: |
           export MACOSX_DEPLOYMENT_TARGET=11.0
-          make clean
           make
 
       - name: Ensure binary exists
