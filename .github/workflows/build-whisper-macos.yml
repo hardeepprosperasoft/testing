@@ -13,9 +13,9 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-13
+          - os: macos-15-intel
             arch: x64
-          - os: macos-14
+          - os: macos-latest
             arch: arm64
 
     runs-on: ${{ matrix.os }}
@@ -29,7 +29,14 @@ jobs:
 
       - name: Build whisper.cpp
         run: |
-          make -j$(sysctl -n hw.ncpu)
+          export MACOSX_DEPLOYMENT_TARGET=11.0
+          make clean
+          make
+
+      - name: Ensure binary exists
+        run: |
+          ls -lah
+          test -f main
 
       - name: Rename binary
         run: |
