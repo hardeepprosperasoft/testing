@@ -11,41 +11,78 @@ on:
 jobs:
   build:
     strategy:
+      fail-fast: true
       matrix:
         include:
+          # Intel macOS
           - os: macos-15-intel
             arch: x64
+
+          # Apple Silicon macOS
           - os: macos-latest
             arch: arm64
 
     runs-on: ${{ matrix.os }}
 
     steps:
+      # ------------------------------------------------------------
+      # Checkout whisper.cpp
+      # ------------------------------------------------------------
       - name: Checkout whisper.cpp
         uses: actions/checkout@v4
         with:
           repository: ggml-org/whisper.cpp
           ref: ${{ github.event.inputs.whisper_version }}
 
+      # ------------------------------------------------------------
+      # Build whisper.cpp
+      # ------------------------------------------------------------
       - name: Build whisper.cpp
         run: |
+          set -e
           export MACOSX_DEPLOYMENT_TARGET=11.0
           make
 
-      - name: Ensure binary exists
+      # ------------------------------------------------------------
+      # Locate and rename whisper binary (robust across versions)
+      # ------------------------------------------------------------
+      - name: Locate and rename whisper binary
         run: |
-          ls -lah
-          test -f main
+          set -e
 
-      - name: Rename binary
-        run: |
-          mv main whisper-cli-darwin-${{ matrix.arch }}
+          echo "🔍 Searching for whisper binary..."
 
-      - name: Verify binary
+          if [ -f build/bin/whisper-cli ]; then
+            echo "✅ Found build/bin/whisper-cli"
+            mv build/bin/whisper-cli whisper-cli-darwin-${{ matrix.arch }}
+
+          elif [ -f build/bin/whisper ]; then
+            echo "✅ Found build/bin/whisper"
+            mv build/bin/whisper whisper-cli-darwin-${{ matrix.arch }}
+
+          elif [ -f main ]; then
+            echo "✅ Found ./main"
+            mv main whisper-cli-darwin-${{ matrix.arch }}
+
+          else
+            echo "❌ Whisper binary not found. Dumping executable files:"
+            find . -type f -perm +111
+            exit 1
+          fi
+
+          chmod +x whisper-cli-darwin-${{ matrix.arch }}
+
+      # ------------------------------------------------------------
+      # Verify binary
+      # ------------------------------------------------------------
+      - name: Verify whisper binary
         run: |
           file whisper-cli-darwin-${{ matrix.arch }}
           ./whisper-cli-darwin-${{ matrix.arch }} --help || true
 
+      # ------------------------------------------------------------
+      # Upload artifact
+      # ------------------------------------------------------------
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
